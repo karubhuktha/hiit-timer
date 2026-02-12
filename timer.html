@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Professional HIIT Timer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            background: #121417;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #f5f5f5;
+        }
+        .app {
+            width: 500px;
+            padding: 35px;
+            border-radius: 20px;
+            background: #1a1f24;
+        }
+        h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 25px;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+        .settings {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            gap: 10px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            width: 30%;
+        }
+        .input-group label {
+            font-size: 11px;
+            margin-bottom: 5px;
+            color: #9aa4ad;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .input-group input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #2b3137;
+            background: #0f1215;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+        }
+        .input-group input:focus {
+            border-color: #00c853;
+        }
+        .round-info {
+            font-size: 13px;
+            color: #9aa4ad;
+            margin-bottom: 5px;
+        }
+        .mode {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .circle {
+            width: 260px;
+            height: 260px;
+            margin: 20px auto;
+            border-radius: 50%;
+            background: conic-gradient(#00c853 0deg, #2b3137 0deg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .circle::before {
+            content: "";
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            background: #121417;
+            border-radius: 50%;
+        }
+        .time {
+            position: absolute;
+            font-size: 48px;
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+        .controls button {
+            flex: 1;
+            padding: 12px;
+            margin: 0 20px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .start {
+            background: #00c853;
+            color: white;
+        }
+        .start:hover {
+            background: #00a844;
+        }
+        .reset {
+            background: #2b3137;
+            color: white;
+        }
+        .reset:hover {
+            background: #3a424a;
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <h1>INTERVAL TIMER</h1>
+
+    <div class="settings">
+        <div class="input-group">
+            <label>Exercise</label>
+            <input type="number" id="exerciseTime" value="30">
+        </div>
+
+        <div class="input-group">
+            <label>Rest</label>
+            <input type="number" id="restTime" value="15">
+        </div>
+
+        <div class="input-group">
+            <label>Rounds</label>
+            <input type="number" id="rounds" value="3">
+        </div>
+    </div>
+
+    <div class="round-info" id="roundText">Round 0</div>
+    <div class="mode" id="modeText">READY</div>
+
+    <div class="circle" id="circle">
+        <div class="time" id="timeDisplay">00</div>
+    </div>
+
+    <div class="controls">
+        <button class="start" onclick="startTimer()">Start</button>
+        <button class="reset" onclick="resetTimer()">Reset</button>
+    </div>
+
+</div>
+
+<script>
+
+let currentRound = 0;
+let totalRounds;
+let exerciseTime;
+let restTime;
+let animationId;
+let startTime;
+let duration;
+let mode = "exercise";
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function beep() {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const oscillator = audioCtx.createOscillator();
+    oscillator.connect(audioCtx.destination);
+    oscillator.frequency.value = 1000;
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.15);
+}
+
+function speak(text) {
+    window.speechSynthesis.cancel();
+    beep();
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.rate = 1.1;
+    window.speechSynthesis.speak(speech);
+}
+
+function updateCircle(progress, color) {
+    const circle = document.getElementById("circle");
+    circle.style.background =
+        `conic-gradient(${color} ${progress}deg, #2b3137 ${progress}deg)`;
+}
+
+function animateTimer(timestamp) {
+
+    if (!startTime) startTime = timestamp;
+
+    let elapsed = (timestamp - startTime) / 1000;
+    let remaining = Math.max(duration - elapsed, 0);
+
+    let progress = (elapsed / duration) * 360;
+
+    if (mode === "exercise") {
+        updateCircle(progress, "#00c853");
+        document.getElementById("modeText").innerText = "EXERCISE";
+    } else {
+        updateCircle(progress, "#ff9800");
+        document.getElementById("modeText").innerText = "REST";
+    }
+
+    document.getElementById("timeDisplay").innerText = Math.ceil(remaining);
+
+    if (remaining > 0) {
+        animationId = requestAnimationFrame(animateTimer);
+    } else {
+        handlePhaseComplete();
+    }
+}
+
+function handlePhaseComplete() {
+
+    cancelAnimationFrame(animationId);
+
+    if (mode === "exercise") {
+
+        if (currentRound === totalRounds) {
+            speak("Completed");
+            document.getElementById("modeText").innerText = "WORKOUT COMPLETE";
+            return;
+        }
+
+        speak("Change");
+
+        if (restTime === 0) {
+            currentRound++;
+            startExercise(false);
+        } else {
+            startRest();
+        }
+
+    } else {
+        currentRound++;
+        startExercise(true);
+    }
+}
+
+function startTimer() {
+
+    cancelAnimationFrame(animationId);
+    window.speechSynthesis.cancel();
+
+    currentRound = 1;
+    totalRounds = parseInt(document.getElementById("rounds").value);
+    exerciseTime = parseInt(document.getElementById("exerciseTime").value);
+    restTime = parseInt(document.getElementById("restTime").value);
+
+    startExercise(false);
+}
+
+function startExercise(announce) {
+
+    mode = "exercise";
+    duration = exerciseTime;
+    startTime = null;
+
+    document.getElementById("roundText").innerText = "Round " + currentRound;
+
+    if (announce && restTime > 0) speak("Start");
+
+    animationId = requestAnimationFrame(animateTimer);
+}
+
+function startRest() {
+
+    mode = "rest";
+    duration = restTime;
+    startTime = null;
+
+    animationId = requestAnimationFrame(animateTimer);
+}
+
+function resetTimer() {
+    cancelAnimationFrame(animationId);
+    window.speechSynthesis.cancel();
+    document.getElementById("modeText").innerText = "READY";
+    document.getElementById("roundText").innerText = "Round 0";
+    document.getElementById("timeDisplay").innerText = "00";
+    updateCircle(0, "#00c853");
+}
+
+</script>
+
+
+</body>
+</html>
